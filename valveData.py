@@ -51,6 +51,13 @@ def rsaminfo():
     resp = requests.get('http://%s/api/rsam' % (config['host']))
     print resp.text
     
+def triggersinfo():
+    '''
+    Prints to the screen information about the triggers dataset in the REST interface
+    '''
+    resp = requests.get('http://%s/api/triggers' % (config['host']))
+    print resp.text
+    
 def tiltinfo():
     '''
     Prints to the screen information about the tilt dataset in the REST interface
@@ -133,6 +140,43 @@ def getRsamLast(channel, starttime, timezone='utc', downsample='none', dsint=10)
     payload = {'channel': channel, 'starttime': starttime, 'timezone': timezone, 'downsample': downsample, 'dsint': 10}
     req = requests.get('http://%s/api/rsam' % (config['host']), params=payload)
     date, datenum, data = parseJson(req, channel, 'rsam')
+    return date, datenum, data
+    
+def getTriggersLast(channel, starttime, timezone='utc'):
+    '''
+    Gets Trigger data from REST interface for the last X time increment.
+    
+    Parameters
+    ----------
+    channel: string
+        channel name, separated by $, cause valve is crazy like that.  see rsaminfo() for full listing
+    starttime: string
+        starttime for plot relative to current time.  Options are:
+        #i for minutes (30i would be last 30 minutes)
+        #h for hours (1h frould be last 1 hour)
+        #d for days
+        #w for weeks
+        #m for months
+        #y for years
+        BE CAREFUL, REQUESTING TOO MUCH DATA WITHOUT DOWNSAMPLING MAY BE BAD FOR
+        YOUR HEALTH.
+    timezone: string
+        timezone for the data.  default is 'utc'. 'hst' is also accepted, as
+        should other timezones, but I don't know for sure
+        
+    Outputs
+    ---------
+    date: list
+        List of UTCDateTime objects corresponding to data list
+    datenum: list
+        List of matplotlib datenums
+    data: list
+        List of data
+        
+    '''
+    payload = {'channel': channel, 'starttime': starttime, 'timezone': timezone}
+    req = requests.get('http://%s/api/triggers' % (config['host']), params=payload)
+    date, datenum, data = parseJson(req, channel, 'triggers')
     return date, datenum, data
     
 def getTiltLast(channel, starttime, timezone='utc', downsample='none', dsint=10, series='radial', rank=1):
@@ -329,9 +373,52 @@ def getGPSLengthLast(channel, baseline, starttime, timezone='utc', dsint=10):
     date, datenum, data = parseJson(req, channel, series)
     return date, datenum, data
     
-def getRsamSpan(channel, starttime, endtime, timezone='utc', downsample='none', dsint=10):
+def getRTNetLast(channel, starttime, timezone='utc', series='up', rank=4):
     '''
-    Gets RSAM data from REST interface from starttime to endtime.
+    Gets GPS RTNet data from REST interface for the last X time interval.
+    
+    Parameters
+    ----------
+    channel: string
+        channel name, for example, UWE.  see gpsinfo() for full listing
+    starttime: string
+        typically in the form of: yyyy[MMdd[hhmm]] 
+        Can also be relative to endtime.  Options are:
+        #i for minutes (30i would be last 30 minutes)
+        #h for hours (1h frould be last 1 hour)
+        #d for days
+        #w for weeks
+        #m for months
+        #y for years
+        BE CAREFUL, REQUESTING TOO MUCH DATA WITHOUT DOWNSAMPLING MAY BE BAD FOR
+        YOUR HEALTH.
+    timezone: string
+        timezone for the data.  default is 'utc'. 'hst' is also accepted, as
+        should other timezones, but I don't know for sure  
+    series: string
+        data that is to be requested.  one series at a time (ex. "north" or "up", not "east,up")
+    rank: int
+    	the rank of data to grab (see valve, default is 4)
+     
+    Outputs
+    ---------
+    date: list
+        List of UTCDateTime objects corresponding to data list
+    datenum: list
+        List of matplotlib datenums
+    data: list
+        List of data
+        
+    '''    
+    
+    payload = {'channel': channel, 'starttime': starttime, 'timezone': timezone, 'rank': rank, 'series': series}
+    req = requests.get('http://%s/api/rtnet' % (config['host']), params=payload)    
+    date, datenum, data = parseJson(req, channel, series)
+    return date, datenum, data
+    
+def getTremorSpan(channel, starttime, endtime, timezone='utc'):
+    '''
+    Gets Trigger data from REST interface from starttime to endtime.
     
     Parameters
     ----------
@@ -353,11 +440,6 @@ def getRsamSpan(channel, starttime, endtime, timezone='utc', downsample='none', 
     timezone: string
         timezone for the data.  default is 'utc'. 'hst' is also accepted, as
         should other timezones, but I don't know for sure
-    downsample: string
-        method for downsampling.  Can be 'none', 'mean' or 'decimate'.  
-    dsint: integer
-        factor to downsample by.  for example, as dsint of 10 on a 60 sec/sample
-        data will result in 600 sec/sample data (1 min to 10 min)
         
     Outputs
     ---------
@@ -369,9 +451,9 @@ def getRsamSpan(channel, starttime, endtime, timezone='utc', downsample='none', 
         List of data
         
     '''
-    payload = {'channel': channel, 'starttime': starttime, 'endtime': endtime, 'timezone': timezone, 'downsample': downsample, 'dsint': 10}
-    req = requests.get('http://%s/api/rsam' % (config['host']), params=payload)    
-    date, datenum, data = parseJson(req, channel, 'rsam')
+    payload = {'channel': channel, 'starttime': starttime, 'endtime': endtime, 'timezone': timezone}
+    req = requests.get('http://%s/api/triggers' % (config['host']), params=payload)    
+    date, datenum, data = parseJson(req, channel, 'triggers')
     return date, datenum, data
     
 def getTiltSpan(channel, starttime, endtime, timezone='utc', downsample='none', dsint=10, series='radial', rank=1):
@@ -582,6 +664,136 @@ def getGPSLengthSpan(channel, baseline, starttime, endtime, timezone='utc', dsin
     req = requests.get('http://%s/api/gps' % (config['host']), params=payload)    
     date, datenum, data = parseJson(req, channel, series)
     return date, datenum, data
+    
+def getRTNetSpan(channel, starttime, endtime, timezone='utc', series='up', rank=4):
+    '''
+    Gets GPS RTNet data from REST interface for the given start time and stop time.
+    
+    Parameters
+    ----------
+    channel: string
+        channel name, for example, UWE.  see gpsinfo() for full listing
+    starttime: string
+        typically in the form of: yyyy[MMdd[hhmm]] 
+        Can also be relative to endtime.  Options are:
+        #i for minutes (30i would be last 30 minutes)
+        #h for hours (1h frould be last 1 hour)
+        #d for days
+        #w for weeks
+        #m for months
+        #y for years
+        BE CAREFUL, REQUESTING TOO MUCH DATA WITHOUT DOWNSAMPLING MAY BE BAD FOR
+        YOUR HEALTH.
+    endtime: string
+        typically in the form of: yyyy[MMdd[hhmm]]
+    timezone: string
+        timezone for the data.  default is 'utc'. 'hst' is also accepted, as
+        should other timezones, but I don't know for sure  
+    series: string
+        data that is to be requested.  one series at a time (ex. "north" or "up", not "east,up")
+    rank: int
+    	the rank of data to grab (see valve, default is 4)
+     
+    Outputs
+    ---------
+    date: list
+        List of UTCDateTime objects corresponding to data list
+    datenum: list
+        List of matplotlib datenums
+    data: list
+        List of data
+        
+    '''    
+    
+    payload = {'channel': channel, 'starttime': starttime, 'endtime': endtime, 'timezone': timezone, 'rank': rank, 'series': series}
+    req = requests.get('http://%s/api/rtnet' % (config['host']), params=payload)    
+    date, datenum, data = parseJson(req, channel, series)
+    return date, datenum, data
+
+def getRsamSpan(channel, starttime, endtime, timezone='utc', downsample='none', dsint=10):
+    '''
+    Gets RSAM data from REST interface for a given start and stop time.
+    
+    Parameters
+    ----------
+    channel: string
+        channel name, separated by $, cause valve is crazy like that.  see rsaminfo() for full listing
+    starttime: string
+        starttime for plot relative to current time.  Options are:
+        #i for minutes (30i would be last 30 minutes)
+        #h for hours (1h frould be last 1 hour)
+        #d for days
+        #w for weeks
+        #m for months
+        #y for years
+        BE CAREFUL, REQUESTING TOO MUCH DATA WITHOUT DOWNSAMPLING MAY BE BAD FOR
+        YOUR HEALTH.
+    endtime: string
+        typically in the form of: yyyy[MMdd[hhmm]]
+    timezone: string
+        timezone for the data.  default is 'utc'. 'hst' is also accepted, as
+        should other timezones, but I don't know for sure
+    downsample: string
+        method for downsampling.  Can be 'none', 'mean' or 'decimate'.  
+    dsint: integer
+        factor to downsample by.  for example, as dsint of 10 on a 60 sec/sample
+        data will result in 600 sec/sample data (1 min to 10 min)
+        
+    Outputs
+    ---------
+    date: list
+        List of UTCDateTime objects corresponding to data list
+    datenum: list
+        List of matplotlib datenums
+    data: list
+        List of data
+        
+    '''
+    payload = {'channel': channel, 'starttime': starttime, 'endtime': endtime, 'timezone': timezone, 'downsample': downsample, 'dsint': 10}
+    req = requests.get('http://%s/api/rsam' % (config['host']), params=payload)
+    date, datenum, data = parseJson(req, channel, 'rsam')
+    return date, datenum, data
+
+def getTriggersSpan(channel, starttime, endtime, timezone='utc'):
+    '''
+    Gets trigger data from REST interface for a given start and stop time.
+    
+    Parameters
+    ----------
+    channel: string
+        channel name, separated by $, cause valve is crazy like that.  see rsaminfo() for full listing
+    starttime: string
+        starttime for plot relative to current time.  Options are:
+        #i for minutes (30i would be last 30 minutes)
+        #h for hours (1h frould be last 1 hour)
+        #d for days
+        #w for weeks
+        #m for months
+        #y for years
+        BE CAREFUL, REQUESTING TOO MUCH DATA WITHOUT DOWNSAMPLING MAY BE BAD FOR
+        YOUR HEALTH.
+    endtime: string
+        typically in the form of: yyyy[MMdd[hhmm]]
+    timezone: string
+        timezone for the data.  default is 'utc'. 'hst' is also accepted, as
+        should other timezones, but I don't know for sure
+    
+        
+    Outputs
+    ---------
+    date: list
+        List of UTCDateTime objects corresponding to data list
+    datenum: list
+        List of matplotlib datenums
+    data: list
+        List of data
+        
+    '''
+    payload = {'channel': channel, 'starttime': starttime, 'endtime': endtime, 'timezone': timezone}
+    req = requests.get('http://%s/api/triggers' % (config['host']), params=payload)
+    date, datenum, data = parseJson(req, channel, 'triggers')
+    return date, datenum, data
+
 
 def parseJson(toParse, channel, series):
     '''
@@ -809,7 +1021,7 @@ def data2obspy(dates, data, name):
     
     return streamData
     
-def vtime2obspytime( vtime )
+def vtime2obspytime( vtime ):
     """
     Converts valve time string to UTCdatetime (an obspy object).
     
@@ -827,7 +1039,7 @@ def vtime2obspytime( vtime )
     obspytime = [nowtime.strptime(nowtime, '%Y%m%d%H%M%S') for nowtime in vtime] 
     return obspytime
     
-def obspytime2vtime( obspytime )
+def obspytime2vtime( obspytime ):
     """
     Converts UTCdatetime (an obspy object) to a valve time.
     
